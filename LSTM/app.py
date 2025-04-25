@@ -7,8 +7,8 @@ import yfinance as yf
 import joblib  # Add this import to handle loading the scaler
 
 # Load the saved model and scaler
-model = tf.keras.models.load_model('lstm_model.keras')
-scaler = joblib.load('close_scaler.save')  # Corrected code to load the scaler
+model = tf.keras.models.load_model('models/lstm_model.keras')
+scaler = joblib.load('models/close_scaler.save')
 
 # Streamlit app
 def main():

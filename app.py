@@ -4,11 +4,11 @@ import pandas as pd
 import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
 import yfinance as yf
+import joblib  # Add this import to handle loading the scaler
 
 # Load the saved model and scaler
 model = tf.keras.models.load_model('my_model.keras')
-scaler = MinMaxScaler()
-scaler = scaler.load('scaler.save')
+scaler = joblib.load('scaler.save')  # Corrected code to load the scaler
 
 # Streamlit app
 def main():

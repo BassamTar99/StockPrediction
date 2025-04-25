@@ -7,64 +7,53 @@ import yfinance as yf
 import joblib  # Add this import to handle loading the scaler
 
 # Load the saved model and scaler
-model = tf.keras.models.load_model('my_model.keras')
-scaler = joblib.load('scaler.save')  # Corrected code to load the scaler
+model = tf.keras.models.load_model('lstm_model.keras')
+scaler = joblib.load('close_scaler.save')  # Corrected code to load the scaler
 
 # Streamlit app
 def main():
     st.title("Stock Price Prediction App")
 
-    # User input for stock ticker
-    ticker = st.text_input("Enter the stock ticker (e.g., AAPL, TSLA):", "AAPL")
+    # Input for stock ticker
+    ticker = st.text_input("Enter the stock ticker (e.g., AAPL, TSLA):").upper().strip()
 
-    # User input for prediction date range
-    start_date = st.date_input("Start Date:", value=pd.to_datetime("2020-01-01"))
-    end_date = st.date_input("End Date:", value=pd.to_datetime("2025-04-24"))
+    # Counter for number of days to predict
+    days_to_predict = st.number_input("Enter the number of days to predict:", min_value=1, max_value=365, value=30)
 
     if st.button("Predict"):
         # Fetch stock data
+        end_date = pd.to_datetime("today")
+        start_date = end_date - pd.Timedelta(days=365 * 5)  # Fetch 5 years of data
         df = yf.download(ticker, start=start_date, end=end_date)
         if df.empty:
-            st.error("No data found for the given ticker and date range.")
+            st.error("No data found for the entered stock ticker.")
             return
 
-        # Feature engineering
-        df_feat = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
-        for w in (10, 20, 50):
-            df_feat[f"SMA_{w}"] = df_feat['Close'].rolling(w).mean()
-        rsi_w = 14
-        delta = df_feat['Close'].diff()
-        gain = delta.clip(lower=0)
-        loss = -delta.clip(upper=0)
-        avg_gain = gain.rolling(rsi_w).mean()
-        avg_loss = loss.rolling(rsi_w).mean()
-        rs = avg_gain / avg_loss
-        df_feat['RSI'] = 100 - (100 / (1 + rs))
-        fast, slow, sig = 12, 26, 9
-        ema_fast = df_feat['Close'].ewm(span=fast, adjust=False).mean()
-        ema_slow = df_feat['Close'].ewm(span=slow, adjust=False).mean()
-        df_feat['MACD'] = ema_fast - ema_slow
-        df_feat['MACD_SIGNAL'] = df_feat['MACD'].ewm(span=sig, adjust=False).mean()
-        df_feat.dropna(inplace=True)
+        # Extract and scale 'Close' prices
+        close_series = df['Close'].values.reshape(-1, 1)
+        scaled = scaler.transform(close_series).flatten()
+        data_min = scaler.data_min_[0]
+        data_max = scaler.data_max_[0]
 
-        # Scale and prepare data
-        data = df_feat.values
-        scaled = scaler.transform(data)
-        seq_len = 30
-        X = []
-        for i in range(seq_len, len(scaled)):
-            X.append(scaled[i-seq_len:i, :])
-        X = np.array(X)
+        # Prepare the last sequence for recursive forecasting
+        forecast_seq = scaled[-30:].copy()
+        forecasts = []
 
-        # Predict
-        predictions = model.predict(X).flatten()
-        predictions = predictions * (scaler.data_max_[3] - scaler.data_min_[3]) + scaler.data_min_[3]  # Inverse scaling
+        for _ in range(days_to_predict):
+            nxt = model.predict(forecast_seq.reshape(1, 30, 1)).flatten()[0]
+            forecasts.append(nxt)
+            forecast_seq = np.append(forecast_seq[1:], nxt)
+
+        # Inverse scale the forecasts
+        forecasts_uv = [f * (data_max - data_min) + data_min for f in forecasts]
 
         # Display results
-        st.subheader("Predicted Prices")
-        df_results = pd.DataFrame({"Date": df.index[-len(predictions):], "Predicted Close": predictions})
+        st.subheader("Forecasted Prices")
+        future_dates = pd.date_range(start=df.index[-1], periods=days_to_predict + 1, freq='B')[1:]
+        df_results = pd.DataFrame({"Date": future_dates, "Forecasted Close": forecasts_uv})
         st.write(df_results)
 
+        # Plot the results
         st.line_chart(df_results.set_index("Date"))
 
 if __name__ == "__main__":

@@ -2,13 +2,9 @@ name: Build and Publish Docker Image
 
 on:
   push:
-    branches: [ "main" ]
-    paths:
-      - 'Streamlit_implementation/**'
+    branches: [ "**" ]
   pull_request:
-    branches: [ "main" ]
-    paths:
-      - 'Streamlit_implementation/**'
+    branches: [ "**" ]
 
 jobs:
   build-and-push:

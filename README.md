@@ -39,6 +39,20 @@ The app is built using Streamlit, TensorFlow, Keras, Docker, and yfinance.
 
 ---
 
+
+## 📚 Additional Folders
+
+- `/Model_Development/`  
+  Contains the original Jupyter notebooks used to build and test the models before integrating them into the Streamlit app.  
+  ⚡ Note: The retrainable model used inside the Streamlit app is a lighter and faster version for demo purposes.  
+  The fully automated retrainable version is included here for reference but was too heavy for real-time deployment.
+
+- `/Presentation/`  
+  Contains the PowerPoint slides used to present and explain the system architecture, models, and demo.
+
+---
+
+
 ## 📢 Notes
 
 - The retrainable model takes longer because it retrains a new model for each stock ticker.

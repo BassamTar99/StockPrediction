@@ -60,8 +60,3 @@ The app is built using Streamlit, TensorFlow, Keras, Docker, and yfinance.
 
 ---
 
-## 📬 Contact
-
-GitHub Profile: @samir-44
-
----

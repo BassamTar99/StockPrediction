@@ -9,12 +9,6 @@ from tensorflow.keras.optimizers import Adam, RMSprop, SGD
 import keras_tuner as kt
 from kerastuner.tuners import RandomSearch
 import tensorflow as tf
-from tensorflow.keras.models import load_model
-import joblib
-
-# Load models and scalers from the root models directory
-spy_model = load_model('models/spy_lstm_model.h5')
-scaler = joblib.load('models/scaler.save')
 
 # Fix seeds for reproducibility
 SEED = 42

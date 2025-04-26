@@ -1,8 +1,8 @@
 streamlit
-numpy
-pandas
 tensorflow
 scikit-learn
 yfinance
-keras-tuner
+pandas
 matplotlib
+joblib
+keras-tuner

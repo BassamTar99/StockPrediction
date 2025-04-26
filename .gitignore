@@ -1,54 +1,18 @@
-# Ignore node_modules folder
-node_modules/
+# Ignore virtual environments
+venv310/
 
-# Ignore logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Ignore model tuning directories
+tuner_dir/
 
-# Ignore environment variable files
-.env
-.env.local
-.env.*.local
-
-# Ignore build output
-dist/
-build/
-
-# Ignore system files
-.DS_Store
-Thumbs.db
-
-# Ignore IDE specific files
-.vscode/
-.idea/
-*.iml
-
-# Ignore package lock files
-package-lock.json
-yarn.lock
-
-# Ignore coverage reports
-coverage/
-
-# Ignore temporary files
-*.tmp
-*.swp
-*.swo
-*.bak
-*.orig
-
-# Ignore Python virtual environment
-.venv/
-.env/
+# Ignore Python cache
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 
-# Ignore Streamlit specific files
-.streamlit/
-.streamlit_cache/
-.streamlit_secrets.toml
-tuner_dir/
+# Ignore logs/temp
+*.log
+*.tmp
+
+# Ignore environment secrets
+.env

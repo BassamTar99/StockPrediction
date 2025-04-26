@@ -2,10 +2,14 @@ import yfinance as yf
 import numpy as np
 from tensorflow.keras.models import load_model
 import joblib
+import os
 
-# Load models and scalers from the root models directory
-spy_model = load_model('models/spy_lstm_model.h5')
-scaler = joblib.load('models/scaler.save')
+# ====== Load Pretrained Model and Scaler (only once) ======
+MODEL_PATH = os.path.join("models", "spy_lstm_model.h5")
+SCALER_PATH = os.path.join("models", "scaler.save")
+
+model = load_model(MODEL_PATH)
+scaler = joblib.load(SCALER_PATH)
 
 # ====== Predict Function ======
 def predict_with_spy_model(ticker: str, window_size: int = 60) -> float:
@@ -35,7 +39,7 @@ def predict_with_spy_model(ticker: str, window_size: int = 60) -> float:
     input_seq = scaled.reshape((1, window_size, 1))
 
     # Predict
-    prediction_scaled = spy_model.predict(input_seq)
+    prediction_scaled = model.predict(input_seq)
     prediction = scaler.inverse_transform(prediction_scaled)[0][0]
 
     return float(prediction)
@@ -64,7 +68,7 @@ def predict_next_n_days(ticker: str, n_days: int = 5, window_size: int = 60) -> 
     for _ in range(n_days):
         scaled_input = scaler.transform(current_input)
         input_seq = scaled_input.reshape((1, window_size, 1))
-        next_scaled = spy_model.predict(input_seq)
+        next_scaled = model.predict(input_seq)
         next_price = scaler.inverse_transform(next_scaled)[0][0]
         predictions.append(float(next_price))
 

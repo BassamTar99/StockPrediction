@@ -1,119 +1,112 @@
 import streamlit as st
+from logic.predict_spy import predict_with_spy_model, predict_next_n_days
+from logic.retrain_model import retrain_and_predict, retrain_and_predict_multi
 import yfinance as yf
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import pandas as pd
-import numpy as np
-from tensorflow.keras.models import load_model
-import joblib
 
-# Load models and scalers from the root models directory
-lstm_model = load_model('models/lstm_model.keras')
-scaler = joblib.load('models/close_scaler.save')
+st.set_page_config(page_title="Stock Predictor", layout="centered")
+st.title("📈 Stock Price Prediction (Pretrained vs Retrainable LSTM)")
 
-# Define a predict function for LSTM
+# --- Initialize prediction history ---
+if 'history' not in st.session_state:
+    st.session_state.history = []
 
-def lstm_predict(ticker, date):
-    """
-    Predict using the LSTM model.
+# --- User inputs ---
+ticker = st.text_input("Enter stock ticker (e.g., AAPL):", value="AAPL").upper()
+n_days = st.slider("How many future days to predict?", min_value=1, max_value=5, value=1)
 
-    Parameters:
-        ticker (str): Stock ticker symbol.
-        date (str): Date for prediction.
+# --- Model visibility options ---
+show_spy = st.checkbox("Show SPY-Based Model", value=True)
+show_retrain = st.checkbox("Show Retrainable Model", value=True)
 
-    Returns:
-        numpy array: Predicted values.
-    """
-    # Fetch stock data for the given ticker
-    df = yf.download(ticker, start="2023-01-01", end=date)
-    if df.empty:
-        raise ValueError(f"No data found for ticker '{ticker}'.")
+if st.button("Predict"):
+    col1, col2 = st.columns(2)
+    spy_preds = []
+    retrain_preds = []
 
-    # Extract and scale 'Close' prices
-    close_series = df['Close'].values.reshape(-1, 1)
-    scaled_data = scaler.transform(close_series)
+    try:
+        # --- SPY-based prediction ---
+        if show_spy:
+            with col1:
+                with st.spinner("SPY-based model is predicting..."):
+                    if n_days == 1:
+                        spy_preds = [predict_with_spy_model(ticker)]
+                        st.metric("SPY-Based Model", f"${spy_preds[0]:.2f}")
+                    else:
+                        spy_preds = predict_next_n_days(ticker, n_days=n_days)
+                        st.markdown("### 📈 SPY-Based Multi-Day Prediction")
+                        for i, p in enumerate(spy_preds, 1):
+                            st.write(f"Day {i}: **${p:.2f}**")
 
-    # Prepare the last sequence for prediction
-    input_seq = scaled_data[-30:].reshape(1, 30, 1)
+        # --- Retrainable model prediction ---
+        if show_retrain:
+            with col2:
+                with st.spinner("Retraining & predicting..."):
+                    if n_days == 1:
+                        retrain_preds = [retrain_and_predict(ticker)]
+                        st.metric("Retrainable Model", f"${retrain_preds[0]:.2f}")
+                    else:
+                        retrain_preds = retrain_and_predict_multi(ticker, n_days=n_days)
+                        st.markdown("### 📈 Retrainable Multi-Day Prediction")
+                        for i, p in enumerate(retrain_preds, 1):
+                            st.write(f"Day {i}: **${p:.2f}**")
 
-    # Predict using the LSTM model
-    predictions = lstm_model.predict(input_seq)
-    return scaler.inverse_transform(predictions)
+        # --- Store in history ---
+        st.session_state.history.append({
+            "Ticker": ticker,
+            "SPY-Based": [f"${p:.2f}" for p in spy_preds] if show_spy else ["Hidden"],
+            "Retrainable": [f"${p:.2f}" for p in retrain_preds] if show_retrain else ["Hidden"]
+        })
 
-# Add the Samir-Streamlit-Final directory to the Python path
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'Samir-Streamlit-Final'))
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
 
-# Import prediction functions from different models
-from Samir_Streamlit_Final.logic.predict_spy import predict_with_spy_model, predict_next_n_days
-from Samir_Streamlit_Final.logic.retrain_model import retrain_and_predict, retrain_and_predict_multi
+# --- Display prediction history ---
+if st.session_state.history:
+    st.subheader(" Prediction History")
 
-st.set_page_config(page_title="Stock Market Prediction System", layout="wide")
+    # Convert lists to strings for display
+    history_df = pd.DataFrame(st.session_state.history[::-1])
+    history_df["SPY-Based"] = history_df["SPY-Based"].apply(lambda x: ", ".join(x))
+    history_df["Retrainable"] = history_df["Retrainable"].apply(lambda x: ", ".join(x))
 
-def main():
-    st.title("📈 Stock Market Prediction System")
-    st.markdown("### Combining LSTM, News Analysis, and SPY-based predictions")
+    st.dataframe(history_df, use_container_width=True)
 
-    # Sidebar for user inputs
-    with st.sidebar:
-        st.header("Input Parameters")
-        ticker = st.text_input("Enter stock ticker (e.g., AAPL):", value="AAPL").upper()
-        n_days = st.slider("Number of days to predict:", min_value=1, max_value=5, value=1)
-        date = st.date_input("Select date:", pd.to_datetime("today"))
+    # --- Download button ---
+    csv = history_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 Download History as CSV",
+        data=csv,
+        file_name="prediction_history.csv",
+        mime="text/csv"
+    )
 
-        # Advanced options
-        with st.expander("Advanced Options"):
-            use_news = st.checkbox("Include News Analysis", value=True)
-            use_spy = st.checkbox("Include SPY-based Model", value=True)
-            use_lstm = st.checkbox("Include LSTM Model", value=True)
+    if st.button(" Clear History"):
+        st.session_state.history.clear()
+        st.info("History cleared — click 'Predict' to refresh the table.")
 
-    if st.button("Generate Predictions"):
-        try:
-            # Create three columns for different models
-            col1, col2, col3 = st.columns(3)
 
-            # 1. LSTM Model Predictions
-            if use_lstm:
-                with col1:
-                    st.markdown("### 🤖 LSTM Model")
-                    with st.spinner("LSTM model is processing..."):
-                        # Updated to format NumPy array elements before displaying
-                        lstm_predictions = lstm_predict(ticker, date)
-                        if lstm_predictions.size > 0:
-                            st.metric("LSTM Prediction (Next Day)", f"${lstm_predictions[0][0]:.2f}")
-                            if n_days > 1:
-                                st.write("Multi-day Predictions:")
-                                for i, pred in enumerate(lstm_predictions[1:], 2):
-                                    st.write(f"Day {i}: **${pred[0]:.2f}**")
+# --- Historical Price Chart ---
+if ticker:
+    st.subheader(" Historical Stock Price (Last 90 Days)")
 
-            # 2. SPY-based Model Predictions
-            if use_spy:
-                with col2:
-                    st.markdown("### 📊 SPY-Based Model")
-                    with st.spinner("SPY-based model is predicting..."):
-                        if n_days == 1:
-                            spy_preds = [predict_with_spy_model(ticker)]
-                            st.metric("SPY Model (Next Day)", f"${spy_preds[0]:.2f}")
-                        else:
-                            spy_preds = predict_next_n_days(ticker, n_days=n_days)
-                            st.write("Multi-day Predictions:")
-                            for i, pred in enumerate(spy_preds, 1):
-                                st.write(f"Day {i}: **${pred:.2f}**")
-
-            # 3. News Analysis
-            if use_news:
-                with col3:
-                    st.markdown("### 📰 News Impact Analysis")
-                    with st.spinner("Analyzing recent news..."):
-                        # Add news analysis integration here
-                        st.write("News analysis feature coming soon!")
-
-            # Display historical data
-            st.markdown("### 📈 Historical Data")
-            df = yf.download(ticker, start="2023-01-01")
-            st.line_chart(df['Close'])
-
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
-
-if __name__ == "__main__":
-    main()
+    try:
+        hist_data = yf.download(ticker, period="90d")['Close']
+        if not hist_data.empty:
+            fig, ax = plt.subplots(figsize=(18, 8))
+            ax.plot(hist_data.index, hist_data.values, label="Close Price", color="blue", linewidth=2)
+            ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+            fig.autofmt_xdate()
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Price (USD)")
+            ax.set_title(f"{ticker} - Last 90 Days Closing Price")
+            ax.grid(True, linestyle="--", alpha=0.5)
+            ax.legend()
+            st.pyplot(fig)
+        else:
+            st.info("No historical data available for this ticker.")
+    except Exception as e:
+        st.warning(f"Couldn't load historical data: {e}")
